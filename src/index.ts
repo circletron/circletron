@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { exec } from 'child_process'
-import { readFile } from 'fs-extra'
+import { readFile } from 'fs'
 import { promisify } from 'util'
 import axios from 'axios'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
@@ -10,6 +10,7 @@ import { join as pathJoin } from 'path'
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 
 const pExec = promisify(exec)
+const pReadFile = promisify(readFile)
 
 const requireEnv = (varName: string): string => {
   const value = process.env[varName]
@@ -38,7 +39,7 @@ async function getPackages(): Promise<Package[]> {
         const [fullPath, name] = line.split(':')
         let circleConfig = ''
         try {
-          circleConfig = (await readFile(pathJoin(fullPath, 'circle.yml'))).toString()
+          circleConfig = (await pReadFile(pathJoin(fullPath, 'circle.yml'))).toString()
         } catch (e) {
           // no circle config, filter below
         }
@@ -124,7 +125,7 @@ async function buildConfiguration(
   packages: Package[],
   triggerPackages: Set<string>,
 ): Promise<string> {
-  const config = yamlParse((await readFile('circle.yml')).toString())
+  const config = yamlParse((await pReadFile('circle.yml')).toString())
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mergeObject = (path: string, projectYaml: any): void => {
@@ -168,7 +169,7 @@ async function buildConfiguration(
 export async function getCircleLernaConfig(): Promise<CircleLernaConfig> {
   let rawConfig: { dependencies?: CircleLernaConfig['dependencies'] } = {}
   try {
-    rawConfig = yamlParse((await readFile(pathJoin('.circleci', 'lerna.yml'))).toString())
+    rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'lerna.yml'))).toString())
   } catch (e) {
     // lerna.yml is not mandatory
   }

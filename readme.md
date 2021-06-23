@@ -1,12 +1,16 @@
 # circletron
 
-Circletron is a tool to simplify working with monorepos. Currently monorepos managed via lerna are supported.
+[![build status](https://circleci.com/gh/circletron/circletron.png?style=shield)](https://circleci.com/gh/circletron/circletron)
+[![Known Vulnerabilities](https://snyk.io/test/github/circletron/circletron/badge.svg)](https://snyk.io/test/github/circletron/circletron)
+[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://renovatebot.com)
 
-It allows splitting up `.circle/config.yml` among subprojects in the monorepo such that each subproject can define its own commands, workflows and jobs. These jobs can then be automatically skipped when not required.
+circletron is a tool to simplify working with monorepos. Currently monorepos managed via lerna are supported.
+
+It allows splitting up `.circleci/config.yml` among subprojects in the monorepo such that each subproject can define its own commands, workflows and jobs. Jobs defined within subpackage specific workflows can then be automatically skipped in branches where no changes were detected.
 
 ## How to use
 
-1. Create a minimal `.config/circle.yml` like this:
+1. Create a minimal `.circleci/config.yml` like this:
 
 ```yaml
 version: 2.1
@@ -20,9 +24,9 @@ workflows:
       - circletron/trigger-jobs
 ```
 
-2. You may create a `circle.yml` in the root of your monorepo. The jobs in this `circle.yml` will always run and any `commands`, `executors` and `orbs` defined in this `circle.yml` will be available in the `circle.yml` of all other subpackages.
+2. Optionally create a `circle.yml` in the root of the monorepo. The jobs in this `circle.yml` will always run and any `commands`, `executors` and `orbs` defined in this `circle.yml` will be available in the `circle.yml` of all other subpackages.
 
-3. Create a `circle.yml` in each subpackage within the monorepo which requires automatiion. The jobs in this circle configuration are run only when there are changes in the respective branch to a file within this subpackage or changes to a file in one of its dependents. `conditional: false` may be added to a job to specify that it must always run even when no changes to the subpackage or one of its dependencies is detected.
+3. Create a `circle.yml` in each subpackage within the monorepo which requires automation. The jobs in this circle configuration are run only when there are changes in the respective branch to a file within this subpackage or changes to one of the subpackages that it depends on. `conditional: false` may be added to a job to specify that it must always be run.
 
 4. Optionally create a `.circle/lerna.yml` file to specify dependencies within projects, e.g.
 

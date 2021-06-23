@@ -1,0 +1,24 @@
+version: 2.1
+
+description: >
+  Conditionally execute and namespace jobs in a monorepo
+
+executors:
+  circletron-executor:
+    docker:
+      - image: circletron/circletron:1.0.1
+
+jobs:
+  trigger-jobs:
+    executor: circletron-executor
+    steps:
+      - checkout
+      - run:
+          name: undo circleci branch mangling
+          command: |
+            if [ $(git rev-parse --abbrev-ref HEAD) != develop ]; then
+              git branch -f develop origin/develop
+            fi
+      - run:
+          name: trigger jobs
+          command: circletron

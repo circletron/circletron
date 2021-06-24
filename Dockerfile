@@ -1,4 +1,4 @@
-from circleci/node:14 as builder
+from circleci/node:16 as builder
 
 user root
 workdir /home/circleci/circletron
@@ -7,7 +7,7 @@ copy src ./src
 run npm install
 run npm run build
 
-from circleci/node:14
+from circleci/node:16
 copy bin/get-branchpoint-commit.sh /usr/local/bin/
 copy --from=builder /home/circleci/circletron /home/circleci/circletron
 run \

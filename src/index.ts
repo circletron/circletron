@@ -28,7 +28,7 @@ interface Package {
   circleConfig: string
 }
 
-interface CircleLernaConfig {
+interface CircletronConfig {
   targetBranchesRegex: RegExp
   dependencies: Record<string, string[]>
 }
@@ -57,12 +57,12 @@ async function getPackages(): Promise<Package[]> {
 /**
  * Get the names of the packages which builds should be triggered for by
  * determing which packages have changed in this branch and consulting
- * .circleci/lerna.yml to packages that should be run due to a dependency
+ * .circleci/circletron.yml to packages that should be run due to a dependency
  * changing.
  */
 const getTriggerPackages = async (
   packages: Package[],
-  config: CircleLernaConfig,
+  config: CircletronConfig,
   branch: string,
 ): Promise<Set<string>> => {
   // run all jobs when the source is the release/develop branches directly
@@ -185,15 +185,15 @@ async function buildConfiguration(
   return yamlStringify(config)
 }
 
-export async function getCircleLernaConfig(): Promise<CircleLernaConfig> {
+export async function getCircletronConfig(): Promise<CircletronConfig> {
   let rawConfig: {
-    dependencies?: CircleLernaConfig['dependencies']
+    dependencies?: CircletronConfig['dependencies']
     targetBranches?: string
   } = {}
   try {
-    rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'lerna.yml'))).toString())
+    rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
-    // lerna.yml is not mandatory
+    // circletron.yml is not mandatory
   }
 
   return {
@@ -205,7 +205,7 @@ export async function getCircleLernaConfig(): Promise<CircleLernaConfig> {
 }
 
 export async function triggerCiJobs(branch: string, continuationKey: string): Promise<void> {
-  const lernaConfig = await getCircleLernaConfig()
+  const lernaConfig = await getCircletronConfig()
   const packages = await getPackages()
   const triggerPackages = await getTriggerPackages(packages, lernaConfig, branch)
 

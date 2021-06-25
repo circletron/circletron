@@ -16,7 +16,7 @@ With circletron the `.circleci/config.yml` is distributed across subproject dire
 version: 2.1
 setup: true
 orbs:
-  circletron: circletron/circletron@1.0.6
+  circletron: circletron/circletron@2.0.0
 
 workflows:
   trigger-jobs:
@@ -28,7 +28,7 @@ workflows:
 
 3. Create a `circle.yml` in each subpackage within the monorepo which requires automation. The jobs in this circle configuration are run only when there are changes in the respective branch to a file within this subpackage or changes to one of the subpackages that it depends on. `conditional: false` may be added to a job to specify that it must always be run.
 
-4. Optionally create a `.circle/lerna.yml` file to specify target branches and dependencies within projects, e.g.
+4. Optionally create a `.circle/circletron.yml` file to specify target branches and dependencies within projects, e.g.
 
 ```
 dependencies:

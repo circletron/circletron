@@ -7,10 +7,9 @@ run npm install
 run npm run build
 
 from node:16-alpine3.13
+run apk add git openssh-client && npm install -g lerna
 copy --from=builder /home/circletron/app /home/circletron/app
 run \
-  apk add git openssh-client && \
-  npm install -g lerna && \
   ln -s /home/circletron/app /usr/local/lib/node_modules/circletron && \
   ln -s /home/circletron/app/dist/index.js /usr/local/bin/circletron && \
   chmod a+x /usr/local/bin/circletron

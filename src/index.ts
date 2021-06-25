@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { exec } from 'child_process'
 import { readFile } from 'fs'
 import { promisify } from 'util'
 import axios from 'axios'
@@ -8,10 +7,10 @@ import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 import { join as pathJoin } from 'path'
 
 import { getBranchpointCommit } from './git'
+import { spawnGetStdout } from './command'
 
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 
-const pExec = promisify(exec)
 const pReadFile = promisify(readFile)
 
 const requireEnv = (varName: string): string => {
@@ -32,9 +31,9 @@ interface CircleLernaConfig {
 }
 
 async function getPackages(): Promise<Package[]> {
-  const packageOutput = await pExec(`lerna list --parseable --all --long`)
+  const packageOutput = await spawnGetStdout('lerna', ['list', '--parseable', '--all', '--long'])
   const allPackages = await Promise.all(
-    packageOutput.stdout
+    packageOutput
       .trim()
       .split('\n')
       .map(async (line) => {
@@ -73,16 +72,21 @@ const getTriggerPackages = async (
     const branchpointCommit = await getBranchpointCommit()
 
     console.log("Looking for changes since `%s'", branchpointCommit)
-    const changeOutput = await pExec(
-      `lerna list --parseable --all --long --since ${branchpointCommit}`,
-    )
+    const changeOutput = (
+      await spawnGetStdout('lerna', [
+        'list',
+        '--parseable',
+        '--all',
+        '--long',
+        '--since',
+        branchpointCommit,
+      ])
+    ).trim()
 
-    const changesStr = changeOutput.stdout.trim()
-
-    if (!changesStr) {
+    if (!changeOutput) {
       console.log('Found no changed packages')
     } else {
-      for (const pkg of changesStr.split('\n')) {
+      for (const pkg of changeOutput.split('\n')) {
         changedPackages.add(pkg.split(':', 2)[1])
       }
 

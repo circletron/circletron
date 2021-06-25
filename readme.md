@@ -16,7 +16,7 @@ It allows splitting up `.circleci/config.yml` among subprojects in the monorepo 
 version: 2.1
 setup: true
 orbs:
-  circletron: circletron/circletron@1.0.1
+  circletron: circletron/circletron@1.0.2
 
 workflows:
   trigger-jobs:

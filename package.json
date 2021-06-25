@@ -1,6 +1,6 @@
 {
   "name": "circletron",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "circle orb for dealing with monorepos",
   "author": "insidewhy <github@chilon.net>",
   "license": "ISC",
@@ -22,6 +22,8 @@
     "prepublishOnly": "npm run build",
     "build": "tsc -p src",
     "build-watch": "npm run build -- -w",
+    "docker-build": "docker build -t circletron/circletron:$(npm run --silent get-version) .",
+    "docker-push": "docker push circletron/circletron:$(npm run --silent get-version)",
     "clean": "rimraf 'dist*'",
     "lint": "eslint 'src/*.ts'",
     "lint-fix": "npm run lint -- --fix",
@@ -32,8 +34,8 @@
     "watch": "npm run build && concurrently 'npm run build-watch' 'npm run jest-watch'",
     "validate": "npm run test && npm run lint && npm run validate-prettiness",
     "jest-watch": "npm run jest -- --watchAll",
-    "docker-build": "docker build -t circletron/circletron:$(npm run --silent get-version) .",
     "orb-publish": "circleci orb publish orb.yml circletron/circletron@$(npm run --silent get-version)",
+    "orb-next": "circleci orb publish orb.yml circletron/circletron@dev:next",
     "get-version": "jq -r .version package.json"
   },
   "bin": {

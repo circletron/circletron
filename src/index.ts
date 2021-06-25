@@ -10,6 +10,7 @@ import { getBranchpointCommit } from './git'
 import { spawnGetStdout } from './command'
 
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
+const DEFAULT_TARGET_BRANCHES_REGEX = /^(release\/|develop$|main$|master$)/
 
 const pReadFile = promisify(readFile)
 
@@ -27,6 +28,7 @@ interface Package {
 }
 
 interface CircleLernaConfig {
+  targetBranchesRegex: RegExp
   dependencies: Record<string, string[]>
 }
 
@@ -69,7 +71,7 @@ const getTriggerPackages = async (
   if (runAll) {
     console.log(`Detected a push from ${branch}, running all pipelines`)
   } else {
-    const branchpointCommit = await getBranchpointCommit()
+    const branchpointCommit = await getBranchpointCommit(config.targetBranchesRegex)
 
     console.log("Looking for changes since `%s'", branchpointCommit)
     const changeOutput = (
@@ -169,14 +171,22 @@ async function buildConfiguration(
 }
 
 export async function getCircleLernaConfig(): Promise<CircleLernaConfig> {
-  let rawConfig: { dependencies?: CircleLernaConfig['dependencies'] } = {}
+  let rawConfig: {
+    dependencies?: CircleLernaConfig['dependencies']
+    targetBranches?: string
+  } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'lerna.yml'))).toString())
   } catch (e) {
     // lerna.yml is not mandatory
   }
 
-  return { dependencies: rawConfig.dependencies ?? {} }
+  return {
+    dependencies: rawConfig.dependencies ?? {},
+    targetBranchesRegex: rawConfig.targetBranches
+      ? new RegExp(rawConfig.targetBranches)
+      : DEFAULT_TARGET_BRANCHES_REGEX,
+  }
 }
 
 export async function triggerCiJobs(branch: string, continuationKey: string): Promise<void> {

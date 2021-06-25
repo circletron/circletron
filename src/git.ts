@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 
 import { spawnGetStdout } from './command'
 
-export const getBranchpointCommit = async (): Promise<string> => {
+export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<string> => {
   const logProc = spawn('git', ['log', '--pretty=format:%h'], {
     stdio: ['ignore', 'pipe', 'ignore'],
   })
@@ -31,14 +31,7 @@ export const getBranchpointCommit = async (): Promise<string> => {
           stdout
             .trim()
             .split('\n')
-            .some(
-              // TODO: make this configurable
-              (refname) =>
-                refname === 'develop' ||
-                refname === 'main' ||
-                refname === 'master' ||
-                refname.startsWith('release/'),
-            )
+            .some((refname) => mainBranchRegex.test(refname))
         ) {
           finish()
           resolve(commit)

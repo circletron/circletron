@@ -16,7 +16,7 @@ It allows splitting up `.circleci/config.yml` among subprojects in the monorepo 
 version: 2.1
 setup: true
 orbs:
-  circletron: circletron/circletron@1.0.4
+  circletron: circletron/circletron@1.0.5
 
 workflows:
   trigger-jobs:
@@ -28,26 +28,20 @@ workflows:
 
 3. Create a `circle.yml` in each subpackage within the monorepo which requires automation. The jobs in this circle configuration are run only when there are changes in the respective branch to a file within this subpackage or changes to one of the subpackages that it depends on. `conditional: false` may be added to a job to specify that it must always be run.
 
-4. Optionally create a `.circle/lerna.yml` file to specify dependencies within projects, e.g.
+4. Optionally create a `.circle/lerna.yml` file to specify target branches and dependencies within projects, e.g.
 
 ```
 dependencies:
   project1:
     - project2
     - project3
+
+# this is the default value
+targetBranches: ^(release/|main$|master$|develop$)
 ```
 
-will cause jobs within `project1` to run when changes are detected in either `project1`, `project2` or `project3`.
+will cause jobs within `project1` to run when changes are detected in either `project1`, `project2` or `project3`. When scanning for where a PR has branched from the first commit that matches the `targetBranches` regex is considered to be the branchpoint. All jobs are run for commits to a branch matching `targetBranches`.
 
 ## Details
 
 It is useful to set up branch protection rules to prevent code from being merged when a CI job does not pass. When jobs are omitted then the PR will never be mergeable since the job will remain in a `pending` state. For this reason `circletron` will never omit a job that was determined not to be run, instead the job will be replaced wit a simple job that echos "Job is not required" and return a success exit status.
-
-For the following branches all jobs will run:
-
-- main
-- master
-- develop
-- branches starting with `release/`
-
-This will be configurable in a future release.

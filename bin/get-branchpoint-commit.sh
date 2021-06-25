@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 # look for the most recent commit that belongs to the branch "develop" or a release branch
 for commit in $(git log --pretty=format:%h) ; do

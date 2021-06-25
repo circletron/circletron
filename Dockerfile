@@ -1,17 +1,17 @@
-from circleci/node:16 as builder
+from node:16-alpine3.13 as builder
 
-user root
-workdir /home/circleci/circletron
+workdir /home/circletron/app
 copy package.json package-lock.json ./
 copy src ./src
 run npm install
 run npm run build
 
-from circleci/node:16
+from node:16-alpine3.13
 copy bin/get-branchpoint-commit.sh /usr/local/bin/
-copy --from=builder /home/circleci/circletron /home/circleci/circletron
+copy --from=builder /home/circletron/app /home/circletron/app
 run \
-  sudo npm install -g lerna && \
-  sudo ln -s /home/circleci/circletron /usr/local/lib/node_modules/circletron && \
-  sudo ln -s /home/circleci/circletron/dist/index.js /usr/local/bin/circletron && \
-  sudo chmod a+x /usr/local/bin/circletron
+  apk add git openssh-client && \
+  npm install -g lerna && \
+  ln -s /home/circletron/app /usr/local/lib/node_modules/circletron && \
+  ln -s /home/circletron/app/dist/index.js /usr/local/bin/circletron && \
+  chmod a+x /usr/local/bin/circletron

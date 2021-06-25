@@ -10,6 +10,7 @@ import { getBranchpointCommit } from './git'
 import { spawnGetStdout } from './command'
 
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
+const DEFAULT_CONFIG_VERSION = 2.1
 const DEFAULT_TARGET_BRANCHES_REGEX = /^(release\/|develop$|main$|master$)/
 
 const pReadFile = promisify(readFile)
@@ -129,16 +130,30 @@ async function buildConfiguration(
   packages: Package[],
   triggerPackages: Set<string>,
 ): Promise<string> {
-  const config = yamlParse((await pReadFile('circle.yml')).toString())
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let config: Record<string, any> = {}
+  try {
+    config = yamlParse((await pReadFile('circle.yml')).toString())
+  } catch (e) {
+    // the root config does not have to exist
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mergeObject = (path: string, projectYaml: any): void => {
     for (const [name, value] of Object.entries(projectYaml[path] ?? {})) {
-      if (config[path][name]) {
+      if (!config[path]) {
+        config[path] = {}
+      } else if (config[path][name]) {
         throw new Error(`Two ${path} with the same name: ${name}`)
       }
       config[path][name] = value
     }
+  }
+  if (!config.jobs) {
+    config.jobs = {}
+  }
+  if (!config.version) {
+    config.version = DEFAULT_CONFIG_VERSION
   }
   const jobsConfig = config.jobs
 

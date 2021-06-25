@@ -16,7 +16,7 @@ With circletron the `.circleci/config.yml` is distributed across subproject dire
 version: 2.1
 setup: true
 orbs:
-  circletron: circletron/circletron@1.0.5
+  circletron: circletron/circletron@1.0.6
 
 workflows:
   trigger-jobs:
@@ -24,7 +24,7 @@ workflows:
       - circletron/trigger-jobs
 ```
 
-2. Optionally create a `circle.yml` in the root of the monorepo. The jobs in this `circle.yml` will always run and any `commands`, `executors` and `orbs` defined in this `circle.yml` will be available in the `circle.yml` of all other subpackages.
+2. Optionally create a `circle.yml` in the root of the monorepo. The jobs in this `circle.yml` will always run and any `commands`, `executors` and `orbs` defined in this `circle.yml` will be available in the `circle.yml` of all other subpackages. This is also where `version` should be defined, if not the version `2.1` will be assigned.
 
 3. Create a `circle.yml` in each subpackage within the monorepo which requires automation. The jobs in this circle configuration are run only when there are changes in the respective branch to a file within this subpackage or changes to one of the subpackages that it depends on. `conditional: false` may be added to a job to specify that it must always be run.
 

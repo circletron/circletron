@@ -7,7 +7,6 @@ run npm install
 run npm run build
 
 from node:16-alpine3.13
-copy bin/get-branchpoint-commit.sh /usr/local/bin/
 copy --from=builder /home/circletron/app /home/circletron/app
 run \
   apk add git openssh-client && \

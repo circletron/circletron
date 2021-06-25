@@ -7,6 +7,8 @@ import axios from 'axios'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 import { join as pathJoin } from 'path'
 
+import { getBranchpointCommit } from './git'
+
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 
 const pExec = promisify(exec)
@@ -68,11 +70,7 @@ const getTriggerPackages = async (
   if (runAll) {
     console.log(`Detected a push from ${branch}, running all pipelines`)
   } else {
-    const parentBranchOutput = await pExec('get-branchpoint-commit.sh')
-    // have to prepend origin, when `develop` is used directly, circle incorrectly thinks
-    // `develop` points to the tip of the current branch. they are doing something weird
-    // with their git checkout I guess.
-    const branchpointCommit = parentBranchOutput.stdout.trim()
+    const branchpointCommit = await getBranchpointCommit()
 
     console.log("Looking for changes since `%s'", branchpointCommit)
     const changeOutput = await pExec(

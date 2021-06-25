@@ -6,7 +6,7 @@
 
 circletron is a tool to simplify working with monorepos. Currently monorepos managed via lerna are supported.
 
-It allows splitting up `.circleci/config.yml` among subprojects in the monorepo such that each subproject can define its own commands, workflows and jobs. Jobs defined within subpackage specific workflows can then be automatically skipped in branches where no changes were detected.
+With circletron the `.circleci/config.yml` is distributed across subproject directories within the monorepo. Each subproject can define its own commands, workflows and jobs. Jobs defined within subpackage specific workflows will be automatically skipped in branches where no changes were detected.
 
 ## How to use
 
@@ -40,7 +40,7 @@ dependencies:
 targetBranches: ^(release/|main$|master$|develop$)
 ```
 
-will cause jobs within `project1` to run when changes are detected in either `project1`, `project2` or `project3`. When scanning for where a PR has branched from the first commit that matches the `targetBranches` regex is considered to be the branchpoint. All jobs are run for commits to a branch matching `targetBranches`.
+will cause jobs within `project1` to run when changes are detected in either `project1`, `project2` or `project3`. When scanning for where a PR has branched from the first commit that belongs to a branch matching the `targetBranches` regex is considered to be the branchpoint. All jobs are run for pushes to a branch matching `targetBranches`.
 
 ## Details
 

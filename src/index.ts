@@ -65,8 +65,8 @@ const getTriggerPackages = async (
   config: CircletronConfig,
   branch: string,
 ): Promise<Set<string>> => {
-  // run all jobs when the source is the release/develop branches directly
-  const runAll = branch === 'develop' || branch.startsWith('release/')
+  // run all jobs on target branches
+  const runAll = config.targetBranchesRegex.test(branch)
   const changedPackages = new Set<string>()
 
   if (runAll) {

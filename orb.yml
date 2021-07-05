@@ -1,12 +1,12 @@
 version: 2.1
 
 description: >
-  Conditionally execute and namespace jobs in a monorepo
+  Split circle configuration across monorepo packages and skip jobs for packages that did not change
 
 executors:
   circletron-executor:
     docker:
-      - image: circletron/circletron:2.0.0
+      - image: circletron/circletron:2.0.1
 
 jobs:
   trigger-jobs:

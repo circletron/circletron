@@ -19,8 +19,20 @@ export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<str
       }
     }
 
+    const commitBuffers: Buffer[] = []
+
+    let lastCommit = ''
+    let noMoreCommits = false
+    let processingCommits = false
     const onLogData = async (commits: Buffer) => {
+      if (processingCommits) {
+        commitBuffers.push(commits)
+        return
+      }
+
+      processingCommits = true
       for (const commit of commits.toString().trim().split('\n')) {
+        lastCommit = commit
         const stdout = await spawnGetStdout('git', [
           'branch',
           '--contains',
@@ -35,16 +47,30 @@ export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<str
         ) {
           finish()
           resolve(commit)
+          return
         }
+      }
+
+      processingCommits = false
+      const nextBuffer = commitBuffers.shift()
+      if (nextBuffer) {
+        onLogData(nextBuffer)
+      } else if (noMoreCommits) {
+        resolve(lastCommit)
       }
     }
 
     logProc.stdout.on('data', onLogData)
 
     logProc.stdout.on('end', () => {
-      if (!finished) {
+      noMoreCommits = true
+      if (!finished && !processingCommits) {
         finish()
-        reject(new Error('Could not find branchpoint'))
+        if (lastCommit) {
+          resolve(lastCommit)
+        } else {
+          reject(new Error('Could not find branchpoint'))
+        }
       }
     })
   })

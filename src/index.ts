@@ -23,14 +23,18 @@ const requireEnv = (varName: string): string => {
   return value
 }
 
+interface CircleConfig {
+  depedencies?: string[]
+  [k: string]: unknown
+}
+
 interface Package {
   name: string
-  circleConfig: string
+  circleConfig: CircleConfig
 }
 
 interface CircletronConfig {
   targetBranchesRegex: RegExp
-  dependencies: Record<string, string[]>
 }
 
 async function getPackages(): Promise<Package[]> {
@@ -41,9 +45,9 @@ async function getPackages(): Promise<Package[]> {
       .split('\n')
       .map(async (line) => {
         const [fullPath, name] = line.split(':')
-        let circleConfig = ''
+        let circleConfig: CircleConfig | undefined
         try {
-          circleConfig = (await pReadFile(pathJoin(fullPath, 'circle.yml'))).toString()
+          circleConfig = yamlParse((await pReadFile(pathJoin(fullPath, 'circle.yml'))).toString())
         } catch (e) {
           // no circle config, filter below
         }
@@ -51,7 +55,11 @@ async function getPackages(): Promise<Package[]> {
         return { circleConfig, name }
       }),
   )
-  return allPackages.filter((pkg) => pkg.circleConfig !== '')
+
+  function hasConfig(pkg: { circleConfig?: CircleConfig }): pkg is Package {
+    return !!pkg.circleConfig
+  }
+  return allPackages.filter(hasConfig)
 }
 
 /**
@@ -106,9 +114,9 @@ const getTriggerPackages = async (
     Array.from(changedPackages)
       .flatMap((changedPackage) => [
         changedPackage,
-        ...Object.entries(config.dependencies)
-          .filter(([, deps]) => deps.includes(changedPackage))
-          .map(([pkgName]) => pkgName),
+        ...packages
+          .filter((pkg) => pkg.circleConfig.depedencies?.includes(changedPackage))
+          .map((pkg) => pkg.name),
       ])
       .filter((pkg) => allPackageNames.has(pkg)),
   )
@@ -158,14 +166,14 @@ async function buildConfiguration(
   const jobsConfig = config.jobs
 
   for (const pkg of packages) {
-    const projectYaml = yamlParse(pkg.circleConfig)
+    const { circleConfig } = pkg
 
-    mergeObject('workflows', projectYaml)
-    mergeObject('orbs', projectYaml)
-    mergeObject('executors', projectYaml)
-    mergeObject('commands', projectYaml)
+    mergeObject('workflows', circleConfig)
+    mergeObject('orbs', circleConfig)
+    mergeObject('executors', circleConfig)
+    mergeObject('commands', circleConfig)
 
-    const jobs = projectYaml.jobs as Record<string, { conditional?: boolean }>
+    const jobs = circleConfig.jobs as Record<string, { conditional?: boolean }>
     for (const [jobName, jobData] of Object.entries(jobs)) {
       if (jobsConfig[jobName]) {
         throw new Error(`Two jobs with the same name: ${jobName}`)
@@ -186,10 +194,7 @@ async function buildConfiguration(
 }
 
 export async function getCircletronConfig(): Promise<CircletronConfig> {
-  let rawConfig: {
-    dependencies?: CircletronConfig['dependencies']
-    targetBranches?: string
-  } = {}
+  let rawConfig: { targetBranches?: string } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
@@ -197,7 +202,6 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
   }
 
   return {
-    dependencies: rawConfig.dependencies ?? {},
     targetBranchesRegex: rawConfig.targetBranches
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,
@@ -209,11 +213,10 @@ export async function triggerCiJobs(branch: string, continuationKey: string): Pr
   const packages = await getPackages()
   const triggerPackages = await getTriggerPackages(packages, lernaConfig, branch)
 
-  const body = {
-    'continuation-key': continuationKey,
-    configuration: await buildConfiguration(packages, triggerPackages),
-  }
-  console.log('CircleCI request to %s: %O', CONTINUATION_API_URL, body)
+  const configuration = await buildConfiguration(packages, triggerPackages)
+  const body = { 'continuation-key': continuationKey, configuration }
+  console.log('CircleCI configuration:')
+  console.log(configuration)
 
   const response = await axios.post(CONTINUATION_API_URL, body)
   console.log('CircleCI response: %O', response.data)

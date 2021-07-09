@@ -16,7 +16,7 @@ With circletron the `.circleci/config.yml` is distributed across subproject dire
 version: 2.1
 setup: true
 orbs:
-  circletron: circletron/circletron@2.0.1
+  circletron: circletron/circletron@3.0.0
 
 workflows:
   trigger-jobs:
@@ -28,19 +28,34 @@ workflows:
 
 3. Create a `circle.yml` in each subpackage within the monorepo which requires automation. The jobs in this circle configuration are run only when there are changes in the respective branch to a file within this subpackage or changes to one of the subpackages that it depends on. `conditional: false` may be added to a job to specify that it must always be run.
 
-4. Optionally create a `.circle/circletron.yml` file to specify target branches and dependencies within projects, e.g.
+4. Optionally create a `.circle/circletron.yml` file to specify target branches e.g.
 
 ```
-dependencies:
-  project1:
-    - project2
-    - project3
-
 # this is the default value
 targetBranches: ^(release/|main$|master$|develop$)
 ```
+To determine the branchpoint of a PR, circletron finds the latest commit that belongs to a branch matching the `targetBranches` regex. All jobs are run for pushes to a branch matching `targetBranches`.
 
-will cause jobs within `project1` to run when changes are detected in either `project1`, `project2` or `project3`. When scanning for where a PR has branched from the first commit that belongs to a branch matching the `targetBranches` regex is considered to be the branchpoint. All jobs are run for pushes to a branch matching `targetBranches`.
+5. Optionally add `dependencies` to `circle.yml` files
+
+`project1/circle.yml`:
+```typescript
+dependencies:
+  - project2
+  - project3
+
+jobs:
+  test-project-1:
+    steps:
+      - checkout
+      - npm run test
+
+workflows:
+  project-1-workflow:
+    jobs:
+      - test-project-1
+```
+This will cause jobs within `project1` to run when changes are detected in either `project1`, `project2` or `project3`.
 
 ## Details
 

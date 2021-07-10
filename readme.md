@@ -34,11 +34,13 @@ workflows:
 # this is the default value
 targetBranches: ^(release/|main$|master$|develop$)
 ```
+
 To determine the branchpoint of a PR, circletron finds the latest commit that belongs to a branch matching the `targetBranches` regex. All jobs are run for pushes to a branch matching `targetBranches`.
 
 5. Optionally add `dependencies` to `circle.yml` files
 
 `project1/circle.yml`:
+
 ```typescript
 dependencies:
   - project2
@@ -55,6 +57,7 @@ workflows:
     jobs:
       - test-project-1
 ```
+
 This will cause jobs within `project1` to run when changes are detected in either `project1`, `project2` or `project3`.
 
 ## Details

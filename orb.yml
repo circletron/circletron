@@ -6,7 +6,7 @@ description: >
 executors:
   circletron-executor:
     docker:
-      - image: circletron/circletron:3.0.0
+      - image: circletron/circletron:3.0.1
 
 jobs:
   trigger-jobs:

@@ -1,5 +1,9 @@
 # Changelog
 
+- 2021/03/08 - 3.0.1
+
+- Fix support for `dependencies`.
+
 - 2021/07/09 - 3.0.0
 
   - Grab `dependencies` from each package's `circle.yml` file instead of configuring all dependencies in `.circleci/circletron.yml`.

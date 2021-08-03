@@ -24,7 +24,7 @@ const requireEnv = (varName: string): string => {
 }
 
 interface CircleConfig {
-  depedencies?: string[]
+  dependencies?: string[]
   [k: string]: unknown
 }
 
@@ -115,7 +115,7 @@ const getTriggerPackages = async (
       .flatMap((changedPackage) => [
         changedPackage,
         ...packages
-          .filter((pkg) => pkg.circleConfig.depedencies?.includes(changedPackage))
+          .filter((pkg) => pkg.circleConfig.dependencies?.includes(changedPackage))
           .map((pkg) => pkg.name),
       ])
       .filter((pkg) => allPackageNames.has(pkg)),

@@ -173,8 +173,9 @@ async function buildConfiguration(
     mergeObject('executors', circleConfig)
     mergeObject('commands', circleConfig)
 
+    // jobs may be missing from circle config if all workflow jobs are from orbs
     const jobs = circleConfig.jobs as Record<string, { conditional?: boolean }>
-    for (const [jobName, jobData] of Object.entries(jobs)) {
+    for (const [jobName, jobData] of Object.entries(jobs ?? {})) {
       if (jobsConfig[jobName]) {
         throw new Error(`Two jobs with the same name: ${jobName}`)
       }

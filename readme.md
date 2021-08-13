@@ -16,7 +16,7 @@ With circletron the `.circleci/config.yml` is distributed across subproject dire
 version: 2.1
 setup: true
 orbs:
-  circletron: circletron/circletron@3.0.1
+  circletron: circletron/circletron@3.0.2
 
 workflows:
   trigger-jobs:

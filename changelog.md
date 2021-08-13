@@ -1,8 +1,12 @@
 # Changelog
 
+- 2021/13/08 - 3.0.2
+
+  - Fix crash for circle.yml files without `jobs`.
+
 - 2021/03/08 - 3.0.1
 
-- Fix support for `dependencies`.
+  - Fix support for `dependencies`.
 
 - 2021/07/09 - 3.0.0
 

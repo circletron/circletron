@@ -2,8 +2,8 @@ from node:16-alpine3.13 as builder
 
 workdir /home/circletron/app
 copy package.json package-lock.json ./
-copy src ./src
 run npm install
+copy src ./src
 run npm run build
 
 from node:16-alpine3.13

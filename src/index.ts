@@ -6,12 +6,13 @@ import axios from 'axios'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 import { join as pathJoin } from 'path'
 
-import { getBranchpointCommit } from './git'
+import { getBranchpointCommit, getLastCommitOnBranch } from './git'
 import { spawnGetStdout } from './command'
 
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 const DEFAULT_CONFIG_VERSION = 2.1
 const DEFAULT_TARGET_BRANCHES_REGEX = /^(release\/|develop$|main$|master$)/
+const DEFAULT_RUN_ALL_ON_TARGET_BRANCHES = true
 
 const pReadFile = promisify(readFile)
 
@@ -34,6 +35,7 @@ interface Package {
 }
 
 interface CircletronConfig {
+  runAllOnTargetBranches: boolean
   targetBranchesRegex: RegExp
 }
 
@@ -74,40 +76,41 @@ const getTriggerPackages = async (
   branch: string,
 ): Promise<Set<string>> => {
   // run all jobs on target branches
-  const runAll = config.targetBranchesRegex.test(branch)
+  const isTargetBranch = config.targetBranchesRegex.test(branch)
   const changedPackages = new Set<string>()
+  const allPackageNames = new Set(packages.map((pkg) => pkg.name))
 
-  if (runAll) {
+  let changesSinceCommit: string
+
+  if (isTargetBranch && config.runAllOnTargetBranches) {
     console.log(`Detected a push from ${branch}, running all pipelines`)
+    return allPackageNames
+  } else if (isTargetBranch) {
+    changesSinceCommit = await getLastCommitOnBranch()
   } else {
-    const branchpointCommit = await getBranchpointCommit(config.targetBranchesRegex)
-
-    console.log("Looking for changes since `%s'", branchpointCommit)
-    const changeOutput = (
-      await spawnGetStdout('lerna', [
-        'list',
-        '--parseable',
-        '--all',
-        '--long',
-        '--since',
-        branchpointCommit,
-      ])
-    ).trim()
-
-    if (!changeOutput) {
-      console.log('Found no changed packages')
-    } else {
-      for (const pkg of changeOutput.split('\n')) {
-        changedPackages.add(pkg.split(':', 2)[1])
-      }
-
-      console.log('Found changes: %O', changedPackages)
-    }
+    changesSinceCommit = await getBranchpointCommit(config.targetBranchesRegex)
   }
 
-  const allPackageNames = new Set(packages.map((pkg) => pkg.name))
-  if (runAll) {
-    return allPackageNames
+  console.log("Looking for changes since `%s'", changesSinceCommit)
+  const changeOutput = (
+    await spawnGetStdout('lerna', [
+      'list',
+      '--parseable',
+      '--all',
+      '--long',
+      '--since',
+      changesSinceCommit,
+    ])
+  ).trim()
+
+  if (!changeOutput) {
+    console.log('Found no changed packages')
+  } else {
+    for (const pkg of changeOutput.split('\n')) {
+      changedPackages.add(pkg.split(':', 2)[1])
+    }
+
+    console.log('Found changes: %O', changedPackages)
   }
 
   return new Set(
@@ -195,7 +198,7 @@ async function buildConfiguration(
 }
 
 export async function getCircletronConfig(): Promise<CircletronConfig> {
-  let rawConfig: { targetBranches?: string } = {}
+  let rawConfig: { targetBranches?: string, runAllOnTargetBranches?: boolean } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
@@ -203,6 +206,9 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
   }
 
   return {
+    runAllOnTargetBranches: rawConfig.runAllOnTargetBranches !== undefined
+      ? rawConfig.runAllOnTargetBranches
+      : DEFAULT_RUN_ALL_ON_TARGET_BRANCHES,
     targetBranchesRegex: rawConfig.targetBranches
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,

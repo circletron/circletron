@@ -86,7 +86,12 @@ const getTriggerPackages = async (
     console.log(`Detected a push from ${branch}, running all pipelines`)
     return allPackageNames
   } else if (isTargetBranch) {
-    changesSinceCommit = await getLastCommitOnBranch()
+    try {
+      changesSinceCommit = await getLastCommitOnBranch()
+    } catch (e) {
+      console.log(`Could not find a previous commit on ${branch}, running all pipelines`)
+      return allPackageNames
+    }
   } else {
     changesSinceCommit = await getBranchpointCommit(config.targetBranchesRegex)
   }

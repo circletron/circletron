@@ -6,23 +6,17 @@ import axios from 'axios'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 import { join as pathJoin } from 'path'
 
-import { getBranchpointCommit, getLastCommitOnBranch } from './git'
+import { getLastSuccessfulBuildRevisionOnBranch } from './circle'
+import { requireEnv } from './env'
+import { getBranchpointCommit } from './git'
 import { spawnGetStdout } from './command'
 
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 const DEFAULT_CONFIG_VERSION = 2.1
 const DEFAULT_TARGET_BRANCHES_REGEX = /^(release\/|develop$|main$|master$)/
-const DEFAULT_RUN_ALL_ON_TARGET_BRANCHES = true
+const DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES = false
 
 const pReadFile = promisify(readFile)
-
-const requireEnv = (varName: string): string => {
-  const value = process.env[varName]
-  if (!value) {
-    throw new Error(`Environment variable ${varName} must be set`)
-  }
-  return value
-}
 
 interface CircleConfig {
   dependencies?: string[]
@@ -35,7 +29,7 @@ interface Package {
 }
 
 interface CircletronConfig {
-  runAllOnTargetBranches: boolean
+  runOnlyChangedOnTargetBranches: boolean
   targetBranchesRegex: RegExp
 }
 
@@ -82,16 +76,18 @@ const getTriggerPackages = async (
 
   let changesSinceCommit: string
 
-  if (isTargetBranch && config.runAllOnTargetBranches) {
-    console.log(`Detected a push from ${branch}, running all pipelines`)
-    return allPackageNames
-  } else if (isTargetBranch) {
-    try {
-      changesSinceCommit = await getLastCommitOnBranch()
-    } catch (e) {
-      console.log(`Could not find a previous commit on ${branch}, running all pipelines`)
+  if (isTargetBranch && config.runOnlyChangedOnTargetBranches) {
+    const lastBuildCommit: string | null = await getLastSuccessfulBuildRevisionOnBranch(branch)
+
+    if (lastBuildCommit === null) {
+      console.log(`Could not find a previous build on ${branch}, running all pipelines`)
       return allPackageNames
     }
+
+    changesSinceCommit = lastBuildCommit
+  } else if (isTargetBranch) {
+    console.log(`Detected a push from ${branch}, running all pipelines`)
+    return allPackageNames
   } else {
     changesSinceCommit = await getBranchpointCommit(config.targetBranchesRegex)
   }
@@ -203,7 +199,7 @@ async function buildConfiguration(
 }
 
 export async function getCircletronConfig(): Promise<CircletronConfig> {
-  let rawConfig: { targetBranches?: string, runAllOnTargetBranches?: boolean } = {}
+  let rawConfig: { targetBranches?: string, runOnlyChangedOnTargetBranches?: boolean } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
@@ -211,9 +207,9 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
   }
 
   return {
-    runAllOnTargetBranches: rawConfig.runAllOnTargetBranches !== undefined
-      ? rawConfig.runAllOnTargetBranches
-      : DEFAULT_RUN_ALL_ON_TARGET_BRANCHES,
+    runOnlyChangedOnTargetBranches: rawConfig.runOnlyChangedOnTargetBranches !== undefined
+      ? rawConfig.runOnlyChangedOnTargetBranches
+      : DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES,
     targetBranchesRegex: rawConfig.targetBranches
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,

@@ -75,14 +75,3 @@ export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<str
     })
   })
 }
-
-export const getLastCommitOnBranch = async (): Promise<string> => {
-  const stdout = await spawnGetStdout('git', ['log', 'HEAD@{1}', '-1', '--pretty=format:%h'])
-  const commits = stdout.trim().split('\n', 1)
-
-  if (commits.length > 0) {
-    return commits[0]
-  }
-
-  throw new Error('Could not find last commit on branch')
-}

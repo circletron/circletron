@@ -199,7 +199,7 @@ async function buildConfiguration(
 }
 
 export async function getCircletronConfig(): Promise<CircletronConfig> {
-  let rawConfig: { targetBranches?: string, runOnlyChangedOnTargetBranches?: boolean } = {}
+  let rawConfig: { targetBranches?: string; runOnlyChangedOnTargetBranches?: boolean } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
@@ -207,9 +207,10 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
   }
 
   return {
-    runOnlyChangedOnTargetBranches: rawConfig.runOnlyChangedOnTargetBranches !== undefined
-      ? rawConfig.runOnlyChangedOnTargetBranches
-      : DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES,
+    runOnlyChangedOnTargetBranches:
+      rawConfig.runOnlyChangedOnTargetBranches !== undefined
+        ? rawConfig.runOnlyChangedOnTargetBranches
+        : DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES,
     targetBranchesRegex: rawConfig.targetBranches
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,

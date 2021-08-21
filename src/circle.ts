@@ -88,13 +88,19 @@ export async function getLastSuccessfulBuildRevisionOnBranch(branch: string): Pr
   try {
     // given the build URL, which is of the form https://circleci.com/api/v2/project/{project_slug}/{build_number}
     // we can extract the project slug to call the API
-    const buildUrl = requireEnv("CIRCLE_BUILD_URL")
+    const buildUrl = requireEnv('CIRCLE_BUILD_URL')
     const projectSlug: string | undefined = /circleci\.com\/(.*\/.*\/.*)\//.exec(buildUrl)?.[1]
+
+    // to access the API, we require the user to specify an access token
+    const circleToken = requireEnv('CIRCLE_TOKEN')
 
     if (projectSlug) {
       // Call the API for pipelines, which tell us nothing about whether all the workflows within them were
       // successful or not
       const { data: pipelineData } = await axios.get(`${CIRCLE_API_URL}/project/${projectSlug}/pipeline`, {
+        headers: {
+          'Circle-Token': circleToken,
+        },
         params: {
           branch,
         },
@@ -104,7 +110,11 @@ export async function getLastSuccessfulBuildRevisionOnBranch(branch: string): Pr
       // 'success' status
       const lastSuccessfulBuild = await find((pipelineData as CirclePipelines).items, async item => {
         if (item.state === CirclePipelineState.Created) {
-          const { data: workflowData } = await axios.get(`${CIRCLE_API_URL}/pipeline/${item.id}/workflow`)
+          const { data: workflowData } = await axios.get(`${CIRCLE_API_URL}/pipeline/${item.id}/workflow`, {
+            headers: {
+              'Circle-Token': circleToken,
+            },
+          })
 
           return (workflowData as CircleWorkflows).items.every(item => item.status === CircleWorkflowStatus.Success)
         }
@@ -115,7 +125,7 @@ export async function getLastSuccessfulBuildRevisionOnBranch(branch: string): Pr
       return lastSuccessfulBuild?.vcs.revision ?? null
     }
   } catch (e) {
-
+    console.log(`Failed to call Circle API v2 with error: ${e.message}`)
   }
 
   return null

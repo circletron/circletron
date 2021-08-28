@@ -10,10 +10,7 @@ interface CirclePipelineError {
 }
 
 interface CirclePipelineVCSInfo {
-  // Name of the VCS provider
   provider_name: 'GitHub' | 'Bitbucket'
-
-  // The code revision the pipeline ran
   revision: string
 }
 
@@ -26,21 +23,13 @@ enum CirclePipelineState {
 }
 
 interface CirclePipelineItem {
-  // The unique ID of the pipeline
   id: string
-
-  // A sequence of errors that have occurred within the pipeline
   errors: CirclePipelineError[]
-
-  // The current state of the pipeline
   state: CirclePipelineState
-
-  // VCS information for the pipeline
   vcs: CirclePipelineVCSInfo
 }
 
 interface CirclePipelines {
-  // A list of pipelines
   items: CirclePipelineItem[]
 }
 
@@ -57,15 +46,11 @@ enum CircleWorkflowStatus {
 }
 
 interface CircleWorkflowItem {
-  // The unique ID of the workflow
   id: string
-
-  // The current status of the workflow
   status: CircleWorkflowStatus
 }
 
 interface CircleWorkflows {
-  // A list of workflows
   items: CircleWorkflowItem[]
 }
 
@@ -85,19 +70,23 @@ async function find<I>(
  * This method determines, for the current branch, the commit hash of the last
  * build executed within Circle CI, by calling the API.
  *
- * @returns last commit built in Circle CI on the current branch, or null
+ * @returns last commit built in Circle CI on the current branch, or undefined
  */
 export async function getLastSuccessfulBuildRevisionOnBranch(
   branch: string,
-): Promise<string | null> {
+): Promise<string | undefined> {
   try {
-    // given the build URL, which is of the form https://circleci.com/api/v2/project/{project_slug}/{build_number}
+    // given the build URL, which is of the form https://circleci.com/{project_slug}/{build_number}
     // we can extract the project slug to call the API
     const buildUrl = requireEnv('CIRCLE_BUILD_URL')
     const projectSlug: string | undefined = /circleci\.com\/(.*\/.*\/.*)\//.exec(buildUrl)?.[1]
 
-    // to access the API, we require the user to specify an access token
+    // to access the API, we require the user to specify an access token that we provide in the
+    // 'Circle-Token' header
     const circleToken = requireEnv('CIRCLE_TOKEN')
+    const headers = {
+      'Circle-Token': circleToken,
+    }
 
     if (projectSlug) {
       // Call the API for pipelines, which tell us nothing about whether all the workflows within them were
@@ -105,9 +94,7 @@ export async function getLastSuccessfulBuildRevisionOnBranch(
       const { data: pipelineData } = await axios.get(
         `${CIRCLE_API_URL}/project/${projectSlug}/pipeline`,
         {
-          headers: {
-            'Circle-Token': circleToken,
-          },
+          headers,
           params: {
             branch,
           },
@@ -115,22 +102,19 @@ export async function getLastSuccessfulBuildRevisionOnBranch(
       )
 
       // For each pipeline, fetch the workflows and find the first one where all the workflows have a
-      // 'success' status
+      // 'success' or 'on hold' status. We assume that 'on hold' pipelines would have succeeded were
+      // they to be approved
       const lastSuccessfulBuild = await find(
         (pipelineData as CirclePipelines).items,
         async (item) => {
           if (item.state === CirclePipelineState.Created) {
             const { data: workflowData } = await axios.get(
               `${CIRCLE_API_URL}/pipeline/${item.id}/workflow`,
-              {
-                headers: {
-                  'Circle-Token': circleToken,
-                },
-              },
+              { headers },
             )
 
-            return (workflowData as CircleWorkflows).items.every(
-              (item) => item.status === CircleWorkflowStatus.Success,
+            return (workflowData as CircleWorkflows).items.every((item) =>
+              [CircleWorkflowStatus.Success, CircleWorkflowStatus.OnHold].includes(item.status),
             )
           }
 
@@ -138,11 +122,9 @@ export async function getLastSuccessfulBuildRevisionOnBranch(
         },
       )
 
-      return lastSuccessfulBuild?.vcs.revision ?? null
+      return lastSuccessfulBuild?.vcs.revision
     }
   } catch (e) {
     console.log(`Failed to call Circle API v2 with error: ${e.message}`)
   }
-
-  return null
 }

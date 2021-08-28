@@ -76,18 +76,22 @@ const getTriggerPackages = async (
 
   let changesSinceCommit: string
 
-  if (isTargetBranch && config.runOnlyChangedOnTargetBranches) {
-    const lastBuildCommit: string | null = await getLastSuccessfulBuildRevisionOnBranch(branch)
+  if (isTargetBranch) {
+    if (config.runOnlyChangedOnTargetBranches) {
+      const lastBuildCommit: string | undefined = await getLastSuccessfulBuildRevisionOnBranch(
+        branch,
+      )
 
-    if (lastBuildCommit === null) {
-      console.log(`Could not find a previous build on ${branch}, running all pipelines`)
+      if (!lastBuildCommit) {
+        console.log(`Could not find a previous build on ${branch}, running all pipelines`)
+        return allPackageNames
+      }
+
+      changesSinceCommit = lastBuildCommit
+    } else {
+      console.log(`Detected a push from ${branch}, running all pipelines`)
       return allPackageNames
     }
-
-    changesSinceCommit = lastBuildCommit
-  } else if (isTargetBranch) {
-    console.log(`Detected a push from ${branch}, running all pipelines`)
-    return allPackageNames
   } else {
     changesSinceCommit = await getBranchpointCommit(config.targetBranchesRegex)
   }

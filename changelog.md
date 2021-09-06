@@ -1,10 +1,14 @@
 # Changelog
 
-- 2021/13/08 - 3.0.2
+- 2021/09/06 - 3.0.3
+
+  - Add `runOnlyChangedOnTargetBranches` configuraton option.
+
+- 2021/08/13 - 3.0.2
 
   - Fix crash for circle.yml files without `jobs`.
 
-- 2021/03/08 - 3.0.1
+- 2021/08/03 - 3.0.1
 
   - Fix support for `dependencies`.
 

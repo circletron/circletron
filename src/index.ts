@@ -212,9 +212,7 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
 
   return {
     runOnlyChangedOnTargetBranches:
-      rawConfig.runOnlyChangedOnTargetBranches !== undefined
-        ? rawConfig.runOnlyChangedOnTargetBranches
-        : DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES,
+      rawConfig.runOnlyChangedOnTargetBranches ?? DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES,
     targetBranchesRegex: rawConfig.targetBranches
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,

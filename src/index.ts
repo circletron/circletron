@@ -6,22 +6,17 @@ import axios from 'axios'
 import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 import { join as pathJoin } from 'path'
 
+import { getLastSuccessfulBuildRevisionOnBranch } from './circle'
+import { requireEnv } from './env'
 import { getBranchpointCommit } from './git'
 import { spawnGetStdout } from './command'
 
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 const DEFAULT_CONFIG_VERSION = 2.1
 const DEFAULT_TARGET_BRANCHES_REGEX = /^(release\/|develop$|main$|master$)/
+const DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES = false
 
 const pReadFile = promisify(readFile)
-
-const requireEnv = (varName: string): string => {
-  const value = process.env[varName]
-  if (!value) {
-    throw new Error(`Environment variable ${varName} must be set`)
-  }
-  return value
-}
 
 interface CircleConfig {
   dependencies?: string[]
@@ -34,6 +29,7 @@ interface Package {
 }
 
 interface CircletronConfig {
+  runOnlyChangedOnTargetBranches: boolean
   targetBranchesRegex: RegExp
 }
 
@@ -74,40 +70,52 @@ const getTriggerPackages = async (
   branch: string,
 ): Promise<Set<string>> => {
   // run all jobs on target branches
-  const runAll = config.targetBranchesRegex.test(branch)
+  const isTargetBranch = config.targetBranchesRegex.test(branch)
   const changedPackages = new Set<string>()
+  const allPackageNames = new Set(packages.map((pkg) => pkg.name))
 
-  if (runAll) {
-    console.log(`Detected a push from ${branch}, running all pipelines`)
-  } else {
-    const branchpointCommit = await getBranchpointCommit(config.targetBranchesRegex)
+  let changesSinceCommit: string
 
-    console.log("Looking for changes since `%s'", branchpointCommit)
-    const changeOutput = (
-      await spawnGetStdout('lerna', [
-        'list',
-        '--parseable',
-        '--all',
-        '--long',
-        '--since',
-        branchpointCommit,
-      ])
-    ).trim()
+  if (isTargetBranch) {
+    if (config.runOnlyChangedOnTargetBranches) {
+      const lastBuildCommit: string | undefined = await getLastSuccessfulBuildRevisionOnBranch(
+        branch,
+      )
 
-    if (!changeOutput) {
-      console.log('Found no changed packages')
-    } else {
-      for (const pkg of changeOutput.split('\n')) {
-        changedPackages.add(pkg.split(':', 2)[1])
+      if (!lastBuildCommit) {
+        console.log(`Could not find a previous build on ${branch}, running all pipelines`)
+        return allPackageNames
       }
 
-      console.log('Found changes: %O', changedPackages)
+      changesSinceCommit = lastBuildCommit
+    } else {
+      console.log(`Detected a push from ${branch}, running all pipelines`)
+      return allPackageNames
     }
+  } else {
+    changesSinceCommit = await getBranchpointCommit(config.targetBranchesRegex)
   }
 
-  const allPackageNames = new Set(packages.map((pkg) => pkg.name))
-  if (runAll) {
-    return allPackageNames
+  console.log("Looking for changes since `%s'", changesSinceCommit)
+  const changeOutput = (
+    await spawnGetStdout('lerna', [
+      'list',
+      '--parseable',
+      '--all',
+      '--long',
+      '--since',
+      changesSinceCommit,
+    ])
+  ).trim()
+
+  if (!changeOutput) {
+    console.log('Found no changed packages')
+  } else {
+    for (const pkg of changeOutput.split('\n')) {
+      changedPackages.add(pkg.split(':', 2)[1])
+    }
+
+    console.log('Found changes: %O', changedPackages)
   }
 
   return new Set(
@@ -195,7 +203,7 @@ async function buildConfiguration(
 }
 
 export async function getCircletronConfig(): Promise<CircletronConfig> {
-  let rawConfig: { targetBranches?: string } = {}
+  let rawConfig: { targetBranches?: string; runOnlyChangedOnTargetBranches?: boolean } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
@@ -203,6 +211,8 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
   }
 
   return {
+    runOnlyChangedOnTargetBranches:
+      rawConfig.runOnlyChangedOnTargetBranches ?? DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES,
     targetBranchesRegex: rawConfig.targetBranches
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,

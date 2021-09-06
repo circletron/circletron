@@ -76,23 +76,22 @@ export async function getLastSuccessfulBuildRevisionOnBranch(
   branch: string,
 ): Promise<string | undefined> {
   try {
-    // given the build URL, which is of the form https://circleci.com/{project_slug}/{build_number}
-    // we can extract the project slug to call the API
+    // the build URL is of the form https://circleci.com/{project_slug}/{build_number}
     const buildUrl = requireEnv('CIRCLE_BUILD_URL')
-    const projectSlug: string | undefined = /circleci\.com\/(.*\/.*\/.*)\//.exec(buildUrl)?.[1]
+    const slugAndBuildNumber: string | undefined = /circleci\.com\/(.*\/.*\/.*)\//.exec(
+      buildUrl,
+    )?.[1]
 
-    // to access the API, we require the user to specify an access token that we provide in the
+    // to access the API the user must specify an access token which is provided in the
     // 'Circle-Token' header
     const circleToken = requireEnv('CIRCLE_TOKEN')
-    const headers = {
-      'Circle-Token': circleToken,
-    }
+    const headers = { 'Circle-Token': circleToken }
 
-    if (projectSlug) {
-      // Call the API for pipelines, which tell us nothing about whether all the workflows within them were
-      // successful or not
+    if (slugAndBuildNumber) {
+      // call the API for pipelines, this does not reveal which workflows within the pipelines
+      // were successful or not
       const { data: pipelineData } = await axios.get(
-        `${CIRCLE_API_URL}/project/${projectSlug}/pipeline`,
+        `${CIRCLE_API_URL}/project/${slugAndBuildNumber}/pipeline`,
         {
           headers,
           params: {
@@ -101,9 +100,8 @@ export async function getLastSuccessfulBuildRevisionOnBranch(
         },
       )
 
-      // For each pipeline, fetch the workflows and find the first one where all the workflows have a
-      // 'success' or 'on hold' status. We assume that 'on hold' pipelines would have succeeded were
-      // they to be approved
+      // for each pipeline, fetch the workflows and find the first one where all the workflows have a
+      // 'success' or 'on hold' status.
       const lastSuccessfulBuild = await find(
         (pipelineData as CirclePipelines).items,
         async (item) => {
@@ -116,9 +114,9 @@ export async function getLastSuccessfulBuildRevisionOnBranch(
             return (workflowData as CircleWorkflows).items.every((item) =>
               [CircleWorkflowStatus.Success, CircleWorkflowStatus.OnHold].includes(item.status),
             )
+          } else {
+            return false
           }
-
-          return false
         },
       )
 

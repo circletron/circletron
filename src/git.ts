@@ -2,12 +2,19 @@ import { spawn } from 'child_process'
 
 import { spawnGetStdout } from './command'
 
-export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<string> => {
+interface CommitAndTargetBranch {
+  commit: string
+  targetBranch?: string
+}
+
+export const getBranchpointCommitAndTargetBranch = async (
+  mainBranchRegex: RegExp,
+): Promise<CommitAndTargetBranch> => {
   const logProc = spawn('git', ['log', '--pretty=format:%h'], {
     stdio: ['ignore', 'pipe', 'ignore'],
   })
 
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<CommitAndTargetBranch>((resolve, reject) => {
     let finished = false
     const finish = () => {
       if (!finished) {
@@ -39,14 +46,13 @@ export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<str
           commit,
           '--format=%(refname:short)',
         ])
-        if (
-          stdout
-            .trim()
-            .split('\n')
-            .some((refname) => mainBranchRegex.test(refname))
-        ) {
+        const targetBranch = stdout
+          .trim()
+          .split('\n')
+          .find((refname) => mainBranchRegex.test(refname))
+        if (targetBranch) {
           finish()
-          resolve(commit)
+          resolve({ commit, targetBranch })
           return
         }
       }
@@ -56,7 +62,7 @@ export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<str
       if (nextBuffer) {
         onLogData(nextBuffer)
       } else if (noMoreCommits) {
-        resolve(lastCommit)
+        resolve({ commit: lastCommit })
       }
     }
 
@@ -67,7 +73,7 @@ export const getBranchpointCommit = async (mainBranchRegex: RegExp): Promise<str
       if (!finished && !processingCommits) {
         finish()
         if (lastCommit) {
-          resolve(lastCommit)
+          resolve({ commit: lastCommit })
         } else {
           reject(new Error('Could not find branchpoint'))
         }

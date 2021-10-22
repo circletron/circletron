@@ -8,7 +8,7 @@ import { join as pathJoin } from 'path'
 
 import { getLastSuccessfulBuildRevisionOnBranch } from './circle'
 import { requireEnv } from './env'
-import { getBranchpointCommit } from './git'
+import { getBranchpointCommitAndTargetBranch } from './git'
 import { spawnGetStdout } from './command'
 
 const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
@@ -31,6 +31,7 @@ interface Package {
 interface CircletronConfig {
   runOnlyChangedOnTargetBranches: boolean
   targetBranchesRegex: RegExp
+  passTargetBranch: boolean
 }
 
 async function getPackages(): Promise<Package[]> {
@@ -68,13 +69,13 @@ const getTriggerPackages = async (
   packages: Package[],
   config: CircletronConfig,
   branch: string,
-): Promise<Set<string>> => {
-  // run all jobs on target branches
-  const isTargetBranch = config.targetBranchesRegex.test(branch)
+  isTargetBranch: boolean,
+): Promise<{ triggerPackages: Set<string>; targetBranch: string }> => {
   const changedPackages = new Set<string>()
   const allPackageNames = new Set(packages.map((pkg) => pkg.name))
 
   let changesSinceCommit: string
+  let targetBranch: string | undefined = branch
 
   if (isTargetBranch) {
     if (config.runOnlyChangedOnTargetBranches) {
@@ -84,16 +85,18 @@ const getTriggerPackages = async (
 
       if (!lastBuildCommit) {
         console.log(`Could not find a previous build on ${branch}, running all pipelines`)
-        return allPackageNames
+        return { triggerPackages: allPackageNames, targetBranch }
       }
 
       changesSinceCommit = lastBuildCommit
     } else {
       console.log(`Detected a push from ${branch}, running all pipelines`)
-      return allPackageNames
+      return { triggerPackages: allPackageNames, targetBranch }
     }
   } else {
-    changesSinceCommit = await getBranchpointCommit(config.targetBranchesRegex)
+    ;({ commit: changesSinceCommit, targetBranch } = await getBranchpointCommitAndTargetBranch(
+      config.targetBranchesRegex,
+    ))
   }
 
   console.log("Looking for changes since `%s'", changesSinceCommit)
@@ -118,16 +121,19 @@ const getTriggerPackages = async (
     console.log('Found changes: %O', changedPackages)
   }
 
-  return new Set(
-    Array.from(changedPackages)
-      .flatMap((changedPackage) => [
-        changedPackage,
-        ...packages
-          .filter((pkg) => pkg.circleConfig.dependencies?.includes(changedPackage))
-          .map((pkg) => pkg.name),
-      ])
-      .filter((pkg) => allPackageNames.has(pkg)),
-  )
+  return {
+    triggerPackages: new Set(
+      Array.from(changedPackages)
+        .flatMap((changedPackage) => [
+          changedPackage,
+          ...packages
+            .filter((pkg) => pkg.circleConfig.dependencies?.includes(changedPackage))
+            .map((pkg) => pkg.name),
+        ])
+        .filter((pkg) => allPackageNames.has(pkg)),
+    ),
+    targetBranch: targetBranch ?? branch,
+  }
 }
 
 const SKIP_JOB = {
@@ -203,7 +209,11 @@ async function buildConfiguration(
 }
 
 export async function getCircletronConfig(): Promise<CircletronConfig> {
-  let rawConfig: { targetBranches?: string; runOnlyChangedOnTargetBranches?: boolean } = {}
+  let rawConfig: {
+    targetBranches?: string
+    runOnlyChangedOnTargetBranches?: boolean
+    passTargetBranch?: boolean
+  } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
@@ -216,16 +226,31 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
     targetBranchesRegex: rawConfig.targetBranches
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,
+    passTargetBranch: Boolean(rawConfig.passTargetBranch),
   }
 }
 
 export async function triggerCiJobs(branch: string, continuationKey: string): Promise<void> {
-  const lernaConfig = await getCircletronConfig()
+  const circletronConfig = await getCircletronConfig()
   const packages = await getPackages()
-  const triggerPackages = await getTriggerPackages(packages, lernaConfig, branch)
+  // run all jobs on target branches
+  const isTargetBranch = circletronConfig.targetBranchesRegex.test(branch)
+  const { triggerPackages, targetBranch } = await getTriggerPackages(
+    packages,
+    circletronConfig,
+    branch,
+    isTargetBranch,
+  )
 
   const configuration = await buildConfiguration(packages, triggerPackages)
-  const body = { 'continuation-key': continuationKey, configuration }
+  const body: {
+    'continuation-key': string
+    configuration: string
+    parameters?: Record<string, string | boolean>
+  } = { 'continuation-key': continuationKey, configuration }
+  if (circletronConfig.passTargetBranch) {
+    body.parameters = { 'target-branch': targetBranch, 'on-target-branch': isTargetBranch }
+  }
   console.log('CircleCI configuration:')
   console.log(configuration)
 

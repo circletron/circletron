@@ -1,6 +1,6 @@
 {
   "name": "circletron",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "circle orb for dealing with monorepos",
   "author": "insidewhy <github@chilon.net>",
   "license": "ISC",

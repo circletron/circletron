@@ -2,7 +2,7 @@
 
 - 2021/10/22 - 3.0.4
 
- - Add `passTargetBranch` configuration option.
+  - Add `passTargetBranch` configuration option.
 
 - 2021/09/06 - 3.0.3
 

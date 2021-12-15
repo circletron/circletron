@@ -64,7 +64,7 @@ This will cause jobs within `project1` to run when changes are detected in eithe
 
 It is useful to set up branch protection rules to prevent code from being merged when a CI job does not pass. When jobs are omitted then the PR will never be mergeable since the job will remain in a `pending` state. For this reason `circletron` will never omit a job that was determined not to be run, instead the job will be replaced wit a simple job that echos "Job is not required" and return a success exit status.
 
-## Advanced Congiruation
+## Advanced Configuration
 
 circletron can be configured to only run workflows on target branches in the packages that have changed since the last successful build on that branch. This feature interacts with the Circle API v2 so requires an access token to be provided, via the `CIRCLE_TOKEN` environment variable. This feature can be turned on using `runOnlyChangedOnTargetBranches`:
 

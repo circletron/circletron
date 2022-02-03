@@ -188,7 +188,10 @@ async function buildConfiguration(
     mergeObject('commands', circleConfig)
 
     // jobs may be missing from circle config if all workflow jobs are from orbs
-    const jobs = circleConfig.jobs as Record<string, { conditional?: boolean, parameters?: Record<string, any> }>
+    const jobs = circleConfig.jobs as Record<
+      string,
+      { conditional?: boolean; parameters?: Record<string, any> }
+    >
     for (const [jobName, jobData] of Object.entries(jobs ?? {})) {
       if (jobsConfig[jobName]) {
         throw new Error(`Two jobs with the same name: ${jobName}`)
@@ -202,7 +205,9 @@ async function buildConfiguration(
           continue
         }
       }
-      jobsConfig[jobName] = triggerPackages.has(pkg.name) ? jobData : { ...SKIP_JOB, parameters: jobData.parameters }
+      jobsConfig[jobName] = triggerPackages.has(pkg.name)
+        ? jobData
+        : { ...SKIP_JOB, parameters: jobData.parameters }
     }
   }
   return yamlStringify(config)

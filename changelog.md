@@ -1,5 +1,9 @@
 # Changelog
 
+- 2021/02/03 - 3.0.5
+
+  - Fix bug that occurs when jobs with parameters are skipped.
+
 - 2021/10/22 - 3.0.4
 
   - Add `passTargetBranch` configuration option.

@@ -20,6 +20,7 @@ const pReadFile = promisify(readFile)
 
 interface CircleConfig {
   dependencies?: string[]
+  workflows?: Record<string, unknown>
   [k: string]: unknown
 }
 
@@ -228,7 +229,11 @@ async function buildConfiguration(
       if (triggerPackages.has(pkg.name)) {
         mergeObject('workflows', circleConfig)
       } else {
-        config.workflows[pkg.name] = SKIP_WORKFLOW
+        if (circleConfig.workflows) {
+          Object.keys(circleConfig.workflows).forEach((workflowName) => {
+            config.workflows[workflowName] = SKIP_WORKFLOW
+          })
+        }
       }
     } else {
       mergeObject('workflows', circleConfig)

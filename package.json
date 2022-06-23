@@ -29,6 +29,7 @@
     "lint-fix": "npm run lint -- --fix",
     "validate-prettiness": "prettier -c 'src/*.ts' '*.md'",
     "make-prettier": "npm run validate-prettiness -- --write",
+    "jest": "jest",
     "test": "npm run jest",
     "watch": "npm run build && concurrently 'npm run build-watch' 'npm run jest-watch'",
     "typecheck": "npm run build -- --noEmit",

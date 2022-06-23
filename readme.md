@@ -68,6 +68,12 @@ It is useful to set up branch protection rules to prevent code from being merged
 
 circletron can be configured to only run workflows on target branches in the packages that have changed since the last successful build on that branch. This feature interacts with the Circle API v2 so requires an access token to be provided, via the `CIRCLE_TOKEN` environment variable. This feature can be turned on using `runOnlyChangedOnTargetBranches`:
 
-```
+```yml
 runOnlyChangedOnTargetBranches: true
+```
+
+circletron can be configured to skip whole workflows and not just specific jobs. This feature can be turned on using `skipWorkflow`:
+
+```yml
+skipWorkflow: true
 ```

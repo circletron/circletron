@@ -62,12 +62,21 @@ This will cause jobs within `project1` to run when changes are detected in eithe
 
 ## Details
 
-It is useful to set up branch protection rules to prevent code from being merged when a CI job does not pass. When jobs are omitted then the PR will never be mergeable since the job will remain in a `pending` state. For this reason `circletron` will never omit a job that was determined not to be run, instead the job will be replaced wit a simple job that echos "Job is not required" and return a success exit status.
+It is useful to set up branch protection rules to prevent code from being merged when a CI job does not pass. When jobs are omitted then the PR will never be mergeable since the job will remain in a `pending` state. For this reason `circletron` will never omit a job that was determined not to be run, instead the job will be replaced with a simple job that echos "Job is not required" and return a success exit status.
 
 ## Advanced Configuration
 
 circletron can be configured to only run workflows on target branches in the packages that have changed since the last successful build on that branch. This feature interacts with the Circle API v2 so requires an access token to be provided, via the `CIRCLE_TOKEN` environment variable. This feature can be turned on using `runOnlyChangedOnTargetBranches`:
 
-```
+```yml
 runOnlyChangedOnTargetBranches: true
 ```
+
+circletron can be configured to skip whole workflows and not just specific jobs. This feature can be turned on using `skip`. Skip defaults to 'jobs'.
+
+```yml
+skip: workflows
+```
+
+When circletron is set to skip: jobs, instead of omitting jobs for GitHub protection rules, we run a simple job that returns success.
+In cases where you share jobs across workflows it might be more relevant to create a simple workflow that will run a single skip job and returns success. That way if two packages share a job circletron will know to omit running it on packages that haven't changed.

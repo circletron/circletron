@@ -15,11 +15,13 @@ const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 const DEFAULT_CONFIG_VERSION = 2.1
 const DEFAULT_TARGET_BRANCHES_REGEX = /^(release\/|develop$|main$|master$)/
 const DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES = false
+const DEFAULT_SKIP = 'jobs'
 
 const pReadFile = promisify(readFile)
 
 interface CircleConfig {
   dependencies?: string[]
+  workflows?: Record<string, unknown>
   [k: string]: unknown
 }
 
@@ -32,6 +34,7 @@ interface CircletronConfig {
   runOnlyChangedOnTargetBranches: boolean
   targetBranchesRegex: RegExp
   passTargetBranch: boolean
+  skip: 'workflows' | 'jobs'
 }
 
 async function getPackages(): Promise<Package[]> {
@@ -136,6 +139,10 @@ const getTriggerPackages = async (
   }
 }
 
+const SKIP_WORKFLOW = {
+  jobs: ['skip'],
+}
+
 const SKIP_JOB = {
   docker: [{ image: 'busybox:stable' }],
   steps: [
@@ -151,6 +158,7 @@ const SKIP_JOB = {
 async function buildConfiguration(
   packages: Package[],
   triggerPackages: Set<string>,
+  circletronConfig: CircletronConfig,
 ): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let config: Record<string, any> = {}
@@ -174,6 +182,9 @@ async function buildConfiguration(
   if (!config.jobs) {
     config.jobs = {}
   }
+  if (!config.workflows) {
+    config.workflows = {}
+  }
   if (!config.version) {
     config.version = DEFAULT_CONFIG_VERSION
   }
@@ -182,7 +193,6 @@ async function buildConfiguration(
   for (const pkg of packages) {
     const { circleConfig } = pkg
 
-    mergeObject('workflows', circleConfig)
     mergeObject('orbs', circleConfig)
     mergeObject('executors', circleConfig)
     mergeObject('commands', circleConfig)
@@ -205,9 +215,29 @@ async function buildConfiguration(
           continue
         }
       }
-      jobsConfig[jobName] = triggerPackages.has(pkg.name)
-        ? jobData
-        : { ...SKIP_JOB, parameters: jobData.parameters }
+      if (circletronConfig.skip === 'jobs') {
+        jobsConfig[jobName] = triggerPackages.has(pkg.name)
+          ? jobData
+          : { ...SKIP_JOB, parameters: jobData.parameters }
+      } else {
+        if (triggerPackages.has(pkg.name)) {
+          jobsConfig[jobName] = jobData
+        }
+      }
+    }
+    if (circletronConfig.skip === 'workflows') {
+      config.jobs['skip'] = SKIP_JOB
+      if (triggerPackages.has(pkg.name)) {
+        mergeObject('workflows', circleConfig)
+      } else {
+        if (circleConfig.workflows) {
+          Object.keys(circleConfig.workflows).forEach((workflowName) => {
+            config.workflows[workflowName] = SKIP_WORKFLOW
+          })
+        }
+      }
+    } else {
+      mergeObject('workflows', circleConfig)
     }
   }
   return yamlStringify(config)
@@ -218,11 +248,17 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
     targetBranches?: string
     runOnlyChangedOnTargetBranches?: boolean
     passTargetBranch?: boolean
+    skip?: string
   } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
     // circletron.yml is not mandatory
+  }
+
+  const skip: string = rawConfig.skip ?? DEFAULT_SKIP
+  if (skip !== 'jobs' && skip !== 'workflows') {
+    throw new Error(`Skip must be either 'jobs' or 'workflows' - got ${skip}`)
   }
 
   return {
@@ -232,6 +268,7 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,
     passTargetBranch: Boolean(rawConfig.passTargetBranch),
+    skip: skip,
   }
 }
 
@@ -247,7 +284,7 @@ export async function triggerCiJobs(branch: string, continuationKey: string): Pr
     isTargetBranch,
   )
 
-  const configuration = await buildConfiguration(packages, triggerPackages)
+  const configuration = await buildConfiguration(packages, triggerPackages, circletronConfig)
   const body: {
     'continuation-key': string
     configuration: string

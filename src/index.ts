@@ -15,6 +15,7 @@ const CONTINUATION_API_URL = `https://circleci.com/api/v2/pipeline/continue`
 const DEFAULT_CONFIG_VERSION = 2.1
 const DEFAULT_TARGET_BRANCHES_REGEX = /^(release\/|develop$|main$|master$)/
 const DEFAULT_RUN_ONLY_CHANGED_ON_TARGET_BRANCHES = false
+const DEFAULT_SKIP = 'jobs'
 
 const pReadFile = promisify(readFile)
 
@@ -33,7 +34,7 @@ interface CircletronConfig {
   runOnlyChangedOnTargetBranches: boolean
   targetBranchesRegex: RegExp
   passTargetBranch: boolean
-  skipWorkflow: boolean
+  skip: 'workflows' | 'jobs'
 }
 
 async function getPackages(): Promise<Package[]> {
@@ -214,7 +215,7 @@ async function buildConfiguration(
           continue
         }
       }
-      if (!circletronConfig.skipWorkflow) {
+      if (circletronConfig.skip === 'jobs') {
         jobsConfig[jobName] = triggerPackages.has(pkg.name)
           ? jobData
           : { ...SKIP_JOB, parameters: jobData.parameters }
@@ -224,7 +225,7 @@ async function buildConfiguration(
         }
       }
     }
-    if (circletronConfig.skipWorkflow) {
+    if (circletronConfig.skip === 'workflows') {
       config.jobs['skip'] = SKIP_JOB
       if (triggerPackages.has(pkg.name)) {
         mergeObject('workflows', circleConfig)
@@ -247,12 +248,17 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
     targetBranches?: string
     runOnlyChangedOnTargetBranches?: boolean
     passTargetBranch?: boolean
-    skipWorkflow?: boolean
+    skip?: string
   } = {}
   try {
     rawConfig = yamlParse((await pReadFile(pathJoin('.circleci', 'circletron.yml'))).toString())
   } catch (e) {
     // circletron.yml is not mandatory
+  }
+
+  const skip: string = rawConfig.skip ?? DEFAULT_SKIP
+  if (skip !== 'jobs' && skip !== 'workflows') {
+    throw new Error(`Skip must be either 'jobs' or 'workflows' - got ${skip}`)
   }
 
   return {
@@ -262,7 +268,7 @@ export async function getCircletronConfig(): Promise<CircletronConfig> {
       ? new RegExp(rawConfig.targetBranches)
       : DEFAULT_TARGET_BRANCHES_REGEX,
     passTargetBranch: Boolean(rawConfig.passTargetBranch),
-    skipWorkflow: Boolean(rawConfig.skipWorkflow) ?? false,
+    skip: skip,
   }
 }
 
